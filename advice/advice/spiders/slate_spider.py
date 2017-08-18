@@ -7,25 +7,30 @@ class SlateSpider(scrapy.Spider):
     COL_NAME = "dear_prudence"
 
     def start_requests(self):
+        print("STARTING")
         client = MongoClient()
         collection = client[self.DB_NAME][self.COL_NAME]
 
-        urls = [item['loc'] for item in collection.find()][:2]
+        urls = [{'loc': item['loc'], "id": item["_id"]} for item in collection.find()][:2]
 
         for url in urls:
-            yield scrapy.Request(url=url, callback=self.parse)
+            req = scrapy.Request(url=url['loc'], callback=self.parse)
+            req.meta['id'] = url['id']
+            yield req
 
     def parse(self, response):
+        id = response.meta['id']
+        print("PARSING", id)
         article = response.xpath("//article[@id='story-0']")
         all_paragraphs = article.xpath("//div[contains(@class, 'parbase')]")
         article_delimiters = []
         temp_delimiter = dict()
 
-
         parsed_articles = {
             "title" : response.xpath("//h1[@class='hed']/text()").extract_first(),
             "subtitle" : response.xpath("//h2[@class='dek']/text()").extract_first(),
             "author" : response.xpath("//a[@rel='author']/text()").extract_first(),
+            "id" : id,
             "questions" : []
         }
 
